@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": ".",
+    "types": ["jest", "node"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "moduleResolution": "node16",
+    "baseUrl": "../../",
+    "paths": {
+      "x402-solana/*": ["node_modules/x402-solana/*"]
+    }
+  },
+  "include": ["./**/*.ts", "../../packages/**/*.ts"],
+  "exclude": ["node_modules", "dist", ".test-ledger"]
+}
