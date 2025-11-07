@@ -139,7 +139,7 @@ export function createX402Router(config: RouterConfig): Router {
 
         // The frontend will handle tool execution if OpenAI requests tools
         const response = await openai.chat.completions.create({
-          model: model || "gpt-4",
+          model: "gpt-4o",
           messages: conversationMessages as any,
           tools: toolsToSend,
           tool_choice: toolsToSend ? "auto" : undefined,

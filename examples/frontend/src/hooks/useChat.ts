@@ -375,7 +375,14 @@ export const useChat = (client: X402Client | null) => {
         setLoading(false);
       }
     },
-    [client, addMessage, updateMessage, convertMessagesToAPI, executeToolCalls, getToolPrice]
+    [
+      client,
+      addMessage,
+      updateMessage,
+      convertMessagesToAPI,
+      executeToolCalls,
+      getToolPrice,
+    ]
   );
 
   const cancelToolCall = useCallback(
@@ -433,10 +440,10 @@ export const useChat = (client: X402Client | null) => {
           paymentStatus: "confirmed",
           toolCalls: [
             {
-            name: toolName,
-            input,
-            result: undefined,
-            cost: getToolPrice(toolName),
+              name: toolName,
+              input,
+              result: undefined,
+              cost: getToolPrice(toolName),
               status: "pending" as const,
             },
           ],
