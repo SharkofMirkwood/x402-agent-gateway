@@ -2,6 +2,12 @@
   "name": "@x402-agent-gateway/server",
   "version": "1.0.0",
   "description": "Backend SDK for x402-native agent and tool orchestration",
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "!dist/**/__tests__/**",
+    "!dist/**/*.test.*"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

@@ -1,0 +1,22 @@
+# Source files
+src/
+__tests__/
+
+# Test files in dist
+dist/**/__tests__/
+dist/**/*.test.*
+
+# Config files
+tsconfig.json
+jest.config.cjs
+*.config.js
+*.config.ts
+
+# Development files
+node_modules/
+*.log
+.DS_Store
+
+# Only include dist/ and package.json
+# dist/ is included by default, but we explicitly exclude everything else
+
