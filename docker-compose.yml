@@ -12,9 +12,6 @@ services:
       - "3000:3000"
     env_file:
       - examples/backend/.env
-    environment:
-      - NODE_ENV=development
-      - DEV_MODE=false
     volumes:
       - ./examples/backend/src:/app/examples/backend/src
     networks:
