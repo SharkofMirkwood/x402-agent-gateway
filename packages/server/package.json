@@ -1,6 +1,6 @@
 {
   "name": "@x402-agent-gateway/server",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Backend SDK for x402-native agent and tool orchestration",
   "files": [
     "dist/**/*.js",
@@ -23,6 +23,18 @@
     "tools"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SharkofMirkwood/x402-agent-gateway.git",
+    "directory": "packages/server"
+  },
+  "bugs": {
+    "url": "https://github.com/SharkofMirkwood/x402-agent-gateway/issues"
+  },
+  "homepage": "https://github.com/SharkofMirkwood/x402-agent-gateway#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "@solana/web3.js": "^1.87.0",
     "bs58": "^5.0.0",
