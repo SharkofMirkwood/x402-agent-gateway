@@ -2,7 +2,9 @@ import { useMemo } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { createClient } from "@x402-agent-gateway/client";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+const BACKEND_URL =
+  import.meta.env.VITE_BACKEND_URL ||
+  "https://x402-agent-gateway-api.up.railway.app";
 const NETWORK = (import.meta.env.VITE_NETWORK || "solana") as
   | "solana"
   | "solana-devnet";
