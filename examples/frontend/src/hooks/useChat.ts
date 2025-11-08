@@ -108,7 +108,7 @@ export const useChat = (client: X402Client | null) => {
   const getToolPrice = useCallback(
     (toolName: string): string => {
       const tool = tools.find((t) => t.name === toolName);
-      if (tool) {
+      if (tool && "amount" in tool.price) {
         return formatPrice(tool.price.amount, tool.price.asset);
       }
       return "Unknown";

@@ -19,7 +19,7 @@ npm install @x402-agent-gateway/server @solana/web3.js zod
 npm install @x402-agent-gateway/client @solana/web3.js
 ```
 
-### Basic Backend Server Setup
+### Basic Server Setup
 
 ```typescript
 import { createToolServer, registerTool } from '@x402-agent-gateway/server';
@@ -64,7 +64,7 @@ registerTool({
 server.start();
 ```
 
-### Basic Frontend Client Setup
+### Basic Client Setup & Use
 
 ```typescript
 import { createClient } from '@x402-agent-gateway/client';
@@ -231,23 +231,6 @@ const result = await client.tools.invoke('web-search', {
 });
 ```
 
-## Payment Flow (x402 Exact Scheme)
-
-1. Client calls protected endpoint without payment
-2. Server responds 402 with PaymentRequirements following x402 exact-scheme:
-   - `amount`: Payment amount in lamports
-   - `recipient`: Server's Solana wallet address
-   - `nonce`: One-time-use nonce (expires in 2 minutes)
-   - `scheme`: "exact" (x402 payment scheme)
-   - `resource`: Endpoint path being accessed
-   - `expiry`: Unix timestamp when payment requirement expires
-   - `network`: Solana network (devnet/mainnet/testnet)
-3. Client constructs and signs Solana payment transaction
-4. Client retries request with `X-Payment` header containing base64-encoded payment proof
-5. Server verifies transaction structure and amount
-6. **Server submits transaction to Solana and confirms on-chain**
-7. Server consumes nonce (prevents replay attacks)
-8. Server executes tool handler and returns 200 with result
 
 ## Project Structure
 
@@ -256,68 +239,21 @@ x402-agent-gateway-monorepo/
 ├── packages/
 │   ├── server/              # Backend SDK
 │   │   ├── src/
-│   │   │   ├── types.ts             # TypeScript type definitions
-│   │   │   ├── registry.ts          # Tool registration and metadata
-│   │   │   ├── payment-middleware.ts # HTTP 402 payment verification
-│   │   │   ├── router.ts            # Express router with x402 endpoints
-│   │   │   ├── server.ts            # Express server with endpoints
-│   │   │   └── index.ts             # Public API exports
+│   │   │   └── ...
 │   │   └── __tests__/               # Unit tests
 │   │
 │   └── client/              # Frontend SDK
 │       ├── src/
-│       │   ├── types.ts             # TypeScript type definitions
-│       │   ├── http-client.ts       # Axios client with 402 interceptor
-│       │   ├── client.ts            # Main client class
-│       │   ├── polyfills.ts         # Browser polyfills for Node.js APIs
-│       │   └── index.ts             # Public API exports
+│       │   └── ...
 │       └── __tests__/               # Unit tests
 │
 └── examples/
     ├── backend/             # Example backend server
-    │   └── src/index.ts     # Server with sample tools (echo, web-search, calculate, url-fetcher, summarizer)
+    │   └── src/index.ts     # Server with sample tools
     │
     └── frontend/            # Example frontend client
         └── src/             # React frontend application
 ```
-
-## Running the Examples
-
-### Start the Backend Server
-
-```bash
-npm run example:backend
-```
-
-The server starts on port 3000 (configurable via `PORT` environment variable) with 5 tools. By default, chat payments are enabled (0.01 USDC) and dev mode is enabled (payments disabled for testing).
-
-**Configuration via environment variables:**
-- `PORT` - Server port (default: 3000)
-- `RECIPIENT_WALLET` - Solana wallet address to receive payments
-- `NETWORK` - Solana network: `solana` (mainnet) or `solana-devnet` (default: `solana`)
-- `DEV_MODE` - Set to `false` to enable payments (default: `true`)
-- `CHAT_PAYMENT_PRICE` - Chat payment amount in micro-units (default: `10000` = 0.01 USDC)
-- `OPENAI_API_KEY` - OpenAI API key for chat completions
-
-Tools available (all priced in USDC):
-- `echo` - Echoes back messages (0.01 USDC = 10000 micro-units)
-- `calculate` - Basic arithmetic (0.005 USDC = 5000 micro-units)
-- `web-search` - Stub web search (0.1 USDC = 100000 micro-units)
-- `url-fetcher` - Fetch HTML from URLs (0.01 USDC = 10000 micro-units)
-- `summarizer` - Text summarization (0.02 USDC = 20000 micro-units)
-
-### Run the Frontend Client
-
-```bash
-npm run example:frontend
-```
-
-The client will:
-1. List available tools
-2. Invoke the echo tool
-3. Invoke the calculate tool
-4. Invoke the web-search tool
-5. Test chat completions
 
 ## Development Mode
 
