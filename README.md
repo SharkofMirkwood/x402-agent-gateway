@@ -1,15 +1,9 @@
 # x402 Agent Gateway - Payment-Gated AI Tool Orchestration
 
-A TypeScript monorepo providing SDK frameworks for building payment-gated AI tools and agent workflows using Solana blockchain micropayments via the x402 protocol.
+A TypeScript monorepo providing client + server SDKs to easily make LLM tools and agent workflows paywalled via x402 micro-payments on Solana, with dynamic pricing options.
 
-## Overview
+Turn any existing LLM tool, API endpoint or any code into a paywalled microservice that can be paid for by a user interacting with an agent. Have users pay for the LLM interactions + any function tools called by the LLM, with payment coming directly from the user's self-custody wallet.
 
-This project consists of two core packages:
-
-- **@x402-agent-gateway/server**: Backend SDK for registering and serving paywalled AI tools
-- **@x402-agent-gateway/client**: Frontend SDK for discovering and invoking tools with automatic payment handling
-
-The architecture follows an HTTP 402 (Payment Required) pattern where tool invocations are gated behind Solana blockchain transactions, with automatic retry logic for seamless payment flows.
 
 ## Quick Start
 
@@ -33,6 +27,8 @@ import { z } from 'zod';
 
 import { PublicKey } from '@solana/web3.js';
 
+const USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+
 const server = createToolServer({
   port: 3000,
   facilitatorUrl: 'https://facilitator.payai.network',
@@ -42,13 +38,19 @@ const server = createToolServer({
   
   // Chat payment options:
   // chatPaymentPrice: { asset: 'USDC', amount: '10000', mint: USDC_MINT }  // Charge for chat (USDC)
-  chatPaymentPrice: null  // Make chat free
+  // chatPaymentPrice: null  // Make chat free
+  chatPaymentPrice: {
+      asset: "USDC",
+      mint: USDC_MINT,
+      costPerToken: "100", // 100 micro-USDC per token (0.0001 USDC)
+      baseAmount: "0", // Optional base amount
+      min: "10000", // Minimum 10000 micro-USDC (0.01 USDC) per request
+  }
 });
 
-// Register a simple echo tool
+// Register a simple echo function tool that the LLM can choose to call
 
 // For USDC payments (requires mint address):
-const USDC_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'); // devnet
 registerTool({
   name: 'echo',
   description: 'Echoes back the input message',
@@ -73,19 +75,58 @@ const wallet = Keypair.fromSecretKey(yourSecretKey);
 const client = createClient({
   baseURL: 'http://localhost:3000',
   wallet,
-  network: 'solana-devnet'
+  network: 'solana'
 });
 
-// Invoke the echo tool (payment handled automatically)
+// Send a chat completions request to the LLM; if your server config requires payment, this will be handled automatically
+const response = await client.chat.completions.create({
+  model: "gpt-4o",
+  messages: chatHistory,
+  tools: "auto",
+});
+
+// List
+const tools = await client.tools.list();
+
+// Invoke a function tool manually (payment handled automatically by the SDK)
 const result = await client.tools.invoke('echo', { 
   message: 'Hello, x402!' 
 });
 console.log(result); // { echo: 'Hello, x402!' }
 ```
 
+## Demo
+
+We have a live hosted demo app that makes use of the SDKs: [Live demo](https://x402-agent-gateway.up.railway.app/)
+
+Alternatively, run the demo yourself in a couple of steps:
+
+```
+git clone https://github.com/SharkofMirkwood/x402-agent-gateway.git
+cd x402-agent-gateway
+cp examples/backend/.env.example examples/backend/.env # set env vars in the .env file; OpenAI API key required
+docker compose --profile dev up --build
+# then open http://localhost:3000
+```
+
+## Overview
+
+This project consists of two core packages:
+
+- **[@x402-agent-gateway/server](https://www.npmjs.com/package/@x402-agent-gateway/server)**: Backend SDK for registering and serving x402-paywalled AI tools 
+- **[@x402-agent-gateway/client](https://www.npmjs.com/package/@x402-agent-gateway/client)**: Frontend SDK for interacting with LLM + discovering and invoking tools with automatic payment handling
+
+The architecture is built upon the concept of [function calling](https://platform.openai.com/docs/guides/function-calling), a mechanism for LLMs to interface with external systems. This is the mechanism that MCP servers are built on top of, and is supported in a fairly consistent way by the leading LLMs services. 
+These SDKs integrate the [x402 payments protocol](https://github.com/coinbase/x402) with function calling, in order to provide automatic payment handling for requests both to the LLM and to the function tools the LLM uses while perfoming its agentic duties.
+
+Combined, this means you can offer agentic functionality that interacts with external services while having the end user pay directly for each interaction, enabling sustainable permissionless and stateless agentic applications.
+
 ## Backend API
 
+The backend acts as a proxy for all requests, to the LLM or to functions the LLM wants to call. It handles x402 payment requirements for all these requests, and manages the pricing for each including the option to price requests dynamically based on the contents of the request or other factors.
+
 ### Endpoints
+
 
 - **GET /tools** - Tool discovery endpoint returning JSON descriptors with name, description, input schemas, and prices
 - **POST /tools/:name/invoke** - Invokes named tool with JSON input, protected with x402 payment middleware
@@ -93,21 +134,28 @@ console.log(result); // { echo: 'Hello, x402!' }
 
 ### Chat Payment Configuration
 
-You can configure whether users pay for chat completions:
+You can configure whether of how users pay for chat completions, with flexible monetisation options:
 
-**Charge for chat messages:**
+**Charge per request:**
 ```typescript
 createToolServer({
   // ...
-  chatPaymentPrice: { asset: 'USDC', amount: '0.01' }
+  chatPaymentPrice: { asset: 'USDC', amount: '0.01', mint: USDC_MINT }
 })
+```
 
-// For USDC payments (requires mint address):
-import { PublicKey } from '@solana/web3.js';
-const USDC_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'); // devnet
+**Charge per input token passed:**
+This allows you to charge per input token, making it possible to cover your AI provider costs or even profit from LLM requests (note the cost doesn't include output tokens, so it's recommended to over-charge for input tokens so the output tokens are covered on average)
+```typescript
 createToolServer({
   // ...
-  chatPaymentPrice: { asset: 'USDC', amount: '10000', mint: USDC_MINT } // 0.01 USDC
+  chatPaymentPrice: {
+      asset: "USDC",
+      mint: USDC_MINT,
+      costPerToken: "100", // 100 micro-USDC per token (0.0001 USDC)
+      baseAmount: "0", // Optional base amount
+      min: "10000", // Minimum 10000 micro-USDC (0.01 USDC) per request
+  }
 })
 ```
 
@@ -119,12 +167,10 @@ createToolServer({
 })
 ```
 
-This gives you flexible monetization:
-- Charge for both LLM orchestration AND tool executions (recommended)
-- Make chat free, only charge for tools
-- Different prices for chat vs. tools
 
 ### Tool Registration
+
+Note that tools are defined with zod input schemas. This allows the LLM to easily generate valid parameters for calling the tools.
 
 ```typescript
 
@@ -133,14 +179,14 @@ import { PublicKey } from '@solana/web3.js';
 const USDC_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'); // devnet
 registerTool({
   name: 'web-search',
-  description: 'Search the web and return results',
+  description: 'Retrieve the top 10 tokens by market cap from Coingeck',
   inputSchema: z.object({ 
     query: z.string(), 
     limit: z.number().optional() 
   }),
   price: { asset: 'USDC', amount: '100000', mint: USDC_MINT }, // 0.1 USDC
   handler: async (args) => {
-    // implement web search logic
+    // call Coingecko using your API key
     return { results: [...] };
   }
 });
@@ -148,15 +194,11 @@ registerTool({
 
 ### Payment Middleware
 
-- On first tool call without payment, responds HTTP 402 with PaymentRequirements JSON
-- On retry with validated `X-Payment` header:
-  1. Verifies transaction structure and amount
-  2. Submits transaction to Solana blockchain
-  3. Confirms transaction on-chain
-  4. Executes tool handler only after confirmed payment
-- Prevents nonce replay using in-memory store with TTL
+An x402 middleware is added to every request to a chat completions or tool invocation endpoint. As per the x402 protocol, it returns an HTTP 402 error if there is no `X-Payment` header. When the header is provided (by the client SDK), it verifies the signed transaction with an x402 facilitator, completes the request, then settles the payment before returning the response to the client.
 
 ## Frontend SDK
+
+The frontend SDK interacts with the server over HTTP, but intercepts 402 responses and handles payment appropriately. It also includes tools for discovering and manually executing your defined function tools.
 
 ### Automatic 402 Payment Handling
 
@@ -167,6 +209,8 @@ When the backend responds with 402 Payment Required:
 
 ### Chat Completions
 
+This is compatible with the OpenAI SDK & API, as well as many of the other large LLM providers:
+
 ```typescript
 const response = await client.chat.completions.create({
   model: 'gpt-4',
@@ -175,8 +219,11 @@ const response = await client.chat.completions.create({
 });
 ```
 
+If the LLM decides to call a function, the frontend should detect this based on the response and call the function as in the [OpenAI documentation](https://platform.openai.com/docs/guides/function-calling#function-tool-example). See the example app in `/examples/frontend` for a full implementation of the flow.
 
 ### Direct Tool Invocation
+
+This will call a tool directly, handling any required payment.
 
 ```typescript
 const result = await client.tools.invoke('web-search', { 
