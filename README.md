@@ -1,8 +1,21 @@
 # x402 Agent Gateway - Payment-Gated AI Tool Orchestration
 
-A TypeScript monorepo providing client + server SDKs to easily make LLM tools and agent workflows paywalled via x402 micro-payments on Solana, with dynamic pricing options.
+TypeScript client + server SDKs that let you turn any LLM-tool, API endpoint or code-function into a Solana-paywalled microservice.
 
-Turn any existing LLM tool, API endpoint or any code into a paywalled microservice that can be paid for by a user interacting with an agent. Have users pay for the LLM interactions + any function tools called by the LLM, with payment coming directly from the user's self-custody wallet.
+Agents can autonomously choose and invoke tools, while the user pays directly from their self-custody wallet on the client - keeping your infrastructure wallet-free and stateless yet potentially entirely paid for using easy permissionless micropayments.
+
+## Demo
+
+We have a live hosted demo app that makes use of the SDKs: [Live demo](https://x402-agent-gateway.up.railway.app/)
+
+Alternatively, run the demo yourself in a couple of steps:
+
+```
+git clone https://github.com/SharkofMirkwood/x402-agent-gateway.git && cd x402-agent-gateway
+cp examples/backend/.env.example examples/backend/.env # set env vars in the .env file; OpenAI API key required
+docker compose --profile dev up --build
+# Access UI at `http://localhost:5000`
+```
 
 
 ## Quick Start
@@ -93,20 +106,6 @@ const result = await client.tools.invoke('echo', {
   message: 'Hello, x402!' 
 });
 console.log(result); // { echo: 'Hello, x402!' }
-```
-
-## Demo
-
-We have a live hosted demo app that makes use of the SDKs: [Live demo](https://x402-agent-gateway.up.railway.app/)
-
-Alternatively, run the demo yourself in a couple of steps:
-
-```
-git clone https://github.com/SharkofMirkwood/x402-agent-gateway.git
-cd x402-agent-gateway
-cp examples/backend/.env.example examples/backend/.env # set env vars in the .env file; OpenAI API key required
-docker compose --profile dev up --build
-# then open http://localhost:3000
 ```
 
 ## Overview
