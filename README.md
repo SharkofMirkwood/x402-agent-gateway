@@ -120,6 +120,49 @@ These SDKs integrate the [x402 payments protocol](https://github.com/coinbase/x4
 
 Combined, this means you can offer agentic functionality that interacts with external services while having the end user pay directly for each interaction, enabling sustainable permissionless and stateless agentic applications.
 
+
+### 1. **Frontend-Backend Proxy Pattern**
+
+The system uses a proxy pattern where:
+- The **frontend** maintains the "state" (chat history) for the chat and decides when to interact with the LLM (via the backend, which proxies all requests)
+- The **backend** receives LLM messages, including tool calls, from OpenAI, and sends these back to the frontend to deal with
+- The **frontend** executes the actual tool calls by making requests to the backend
+- The **backend** receives requests from the frontend and will return a `402` error if payment is required, as per the x402 protocol
+- The **frontend** intercepts 402 payment responses and handles payment using the user's crypto wallet, then resubmits the requests to the backend
+- The **backend** receives the request with the payment header, verifies the payment, then retrieves the data from the external API and returns it to the frontend, which appends the tool call to the chat history for the rest of the conversation with the LLM
+
+This disagram illustrates the flow when the user interacts with the chat:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Wallet
+    participant Frontend
+    participant Backend
+    participant OpenAI
+    participant Tools
+
+    User->>Frontend: Input chat message
+    Frontend->>Backend: Send message
+    Backend->>OpenAI: Send message with tool definitions
+    OpenAI->>Backend: Return tool call request
+    Backend->>Frontend: Return tool call to frontend
+    Frontend->>Backend: Call /invoke as part of tool call
+    Backend->>Frontend: Return 402 error (payment required)
+    Frontend->>Wallet: Request payment
+    User->>Wallet: Sign payment
+    Wallet->>Frontend: Send signed payment
+    Frontend->>Backend: Execute tool call with signed payment in header
+    Backend->>Tools: Retrieve data/execute stuff
+    Tools->>Backend: Return data
+    Backend->>Frontend: Return function tool response
+    Frontend->>Backend: Send results back to OpenAI (as part of chat history)
+    Backend->>OpenAI: Forward to OpenAI
+    OpenAI->>Backend: Return interpreted response
+    Backend->>Frontend: Return final response
+    Frontend->>User: Display AI response with tool response as context
+```
+
 ## Backend API
 
 The backend acts as a proxy for all requests, to the LLM or to functions the LLM wants to call. It handles x402 payment requirements for all these requests, and manages the pricing for each including the option to price requests dynamically based on the contents of the request or other factors.
