@@ -23,9 +23,11 @@ export interface ChatHistory {
 export interface Tool {
   name: string;
   description: string;
-  price: {
-    asset: string;
-    amount: string;
-  };
+  price:
+    | {
+        asset: string;
+        amount: string;
+      }
+    | { dynamic: true };
   inputSchema: Record<string, unknown>;
 }

@@ -149,7 +149,12 @@ export const ToolFormModal = ({
 
           <div className="mb-4 p-2 bg-purple-50 rounded">
             <span className="text-xs font-semibold text-purple-700">
-              Cost: {formatPrice(tool.price.amount, tool.price.asset)}
+              Cost:{" "}
+              {"dynamic" in tool.price && tool.price.dynamic
+                ? "Dynamic pricing (varies by input)"
+                : "amount" in tool.price
+                  ? formatPrice(tool.price.amount, tool.price.asset)
+                  : "Price not available"}
             </span>
           </div>
 

@@ -32,12 +32,21 @@ class ToolRegistry {
         ? toJSONSchema(tool.outputSchema)
         : undefined;
 
+      // Serialize price: if it's a function, serialize as { dynamic: true }
+      // Otherwise, return the PaymentPrice object as-is
+      let serializedPrice: any;
+      if (typeof tool.price === "function") {
+        serializedPrice = { dynamic: true };
+      } else {
+        serializedPrice = tool.price;
+      }
+
       metadata.push({
         name: tool.name,
         description: tool.description,
         inputSchema,
         outputSchema,
-        price: tool.price,
+        price: serializedPrice,
       });
     }
 

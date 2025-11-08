@@ -74,7 +74,11 @@ export const ToolsList = ({ client, onToolExecute }: ToolsListProps) => {
                   {tool.description}
                 </div>
                 <div className="text-xs text-purple-600 font-medium mt-2 mb-2">
-                  {formatPrice(tool.price.amount, tool.price.asset)}
+                  {"dynamic" in tool.price && tool.price.dynamic
+                    ? "Dynamic pricing"
+                    : "amount" in tool.price
+                    ? formatPrice(tool.price.amount, tool.price.asset)
+                    : "Price not available"}
                 </div>
                 <button
                   onClick={() => handleToolClick(tool)}
