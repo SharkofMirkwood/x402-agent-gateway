@@ -66,7 +66,7 @@ export function setPaymentSource(source: PaymentSource): void {
 
 /**
  * Checks USDC balance for a given public key
- * Returns 0 if the token account doesn't exist
+ * Returns 0 if no token accounts are found
  */
 export async function getUSDCBalance(
   connection: Connection,
@@ -74,13 +74,26 @@ export async function getUSDCBalance(
   usdcMint: PublicKey
 ): Promise<number> {
   try {
+    // Try the Associated Token Account (ATA) first
     const tokenAddress = await getAssociatedTokenAddress(usdcMint, publicKey);
     const accountInfo = await getAccount(connection, tokenAddress);
-    // USDC has 6 decimals
-    return Number(accountInfo.amount) / 1e6;
+    return Number(accountInfo.amount) / 1e6; // USDC has 6 decimals
   } catch {
-    // Token account doesn't exist, return 0
-    return 0;
+    // If ATA doesn't exist, search for all token accounts
+    try {
+      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+        publicKey,
+        { mint: usdcMint }
+      );
+
+      return tokenAccounts.value.reduce((total, account) => {
+        return (
+          total + (account.account.data.parsed.info.tokenAmount.uiAmount || 0)
+        );
+      }, 0);
+    } catch {
+      return 0;
+    }
   }
 }
 

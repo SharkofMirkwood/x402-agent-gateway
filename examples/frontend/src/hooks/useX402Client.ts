@@ -10,7 +10,7 @@ import {
 const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL ||
   "https://x402-agent-gateway-api.up.railway.app";
-const NETWORK = (import.meta.env.VITE_NETWORK || "solana-devnet") as
+const NETWORK = (import.meta.env.VITE_NETWORK || "solana") as
   | "solana"
   | "solana-devnet";
 const RPC_URL = import.meta.env.VITE_RPC_URL || "https://solana.drpc.org";

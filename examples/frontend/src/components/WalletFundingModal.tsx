@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { getInBrowserWalletAddress, getUSDCBalance, getUSDCMint } from "../utils/wallet";
 
@@ -21,9 +21,35 @@ export const WalletFundingModal = ({
   const [copied, setCopied] = useState(false);
   const [qrCode, setQrCode] = useState<string>("");
 
+  const loadBalance = useCallback(async (walletAddress: string) => {
+    setLoading(true);
+    try {
+      console.log("Loading balance for wallet address:", walletAddress);
+      console.log("Network:", network);
+      console.log("RPC URL:", rpcUrl);
+      
+      const connection = new Connection(rpcUrl, "confirmed");
+      const publicKey = new PublicKey(walletAddress);
+      const usdcMint = getUSDCMint(network);
+      
+      console.log("USDC Mint:", usdcMint.toBase58());
+      
+      const usdcBalance = await getUSDCBalance(connection, publicKey, usdcMint);
+      console.log("USDC Balance:", usdcBalance);
+      
+      setBalance(usdcBalance);
+    } catch (error) {
+      console.error("Failed to load balance:", error);
+      setBalance(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [network, rpcUrl]);
+
   useEffect(() => {
     if (isOpen) {
       const walletAddress = getInBrowserWalletAddress();
+      console.log("Modal opened - Retrieved wallet address:", walletAddress);
       setAddress(walletAddress);
       
       // Generate QR code data URL
@@ -34,23 +60,7 @@ export const WalletFundingModal = ({
       // Load balance
       loadBalance(walletAddress);
     }
-  }, [isOpen, network, rpcUrl]);
-
-  const loadBalance = async (walletAddress: string) => {
-    setLoading(true);
-    try {
-      const connection = new Connection(rpcUrl, "confirmed");
-      const publicKey = new PublicKey(walletAddress);
-      const usdcMint = getUSDCMint(network);
-      const usdcBalance = await getUSDCBalance(connection, publicKey, usdcMint);
-      setBalance(usdcBalance);
-    } catch (error) {
-      console.error("Failed to load balance:", error);
-      setBalance(0);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [isOpen, network, rpcUrl, loadBalance]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(address);

@@ -14,11 +14,11 @@ import { useChat } from "./hooks/useChat";
 import { getInBrowserWallet } from "./utils/wallet";
 
 function AppContent() {
-  const network = (import.meta.env.VITE_NETWORK || "solana-devnet") as
+  const network = (import.meta.env.VITE_NETWORK || "solana") as
     | "solana"
     | "solana-devnet";
   const rpcUrl = import.meta.env.VITE_RPC_URL || "https://solana.drpc.org";
-  
+
   const client = useX402Client();
   const {
     messages,
@@ -58,7 +58,10 @@ function App() {
     | "solana"
     | "solana-devnet";
   const endpoint = useMemo(
-    () => (network === "solana" ? clusterApiUrl("mainnet-beta") : clusterApiUrl("devnet")),
+    () =>
+      network === "solana"
+        ? clusterApiUrl("mainnet-beta")
+        : clusterApiUrl("devnet"),
     [network]
   );
   const wallets = useMemo(() => {

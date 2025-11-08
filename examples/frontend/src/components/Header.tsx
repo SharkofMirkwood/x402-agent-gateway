@@ -1,12 +1,19 @@
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Connection, PublicKey } from "@solana/web3.js";
 import {
   getPaymentSource,
   setPaymentSource,
   PaymentSource,
+  getInBrowserWalletAddress,
+  getUSDCBalance,
+  getUSDCMint,
 } from "../utils/wallet";
 import { WalletFundingModal } from "./WalletFundingModal";
+
+// Cache balance for 30 seconds to prevent rate limiting
+const BALANCE_CACHE_MS = 30000;
 
 interface HeaderProps {
   onClearChatHistory: () => void;
@@ -27,6 +34,14 @@ export const Header = ({
     getPaymentSource()
   );
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [inBrowserBalance, setInBrowserBalance] = useState<number | null>(null);
+  const [connectedBalance, setConnectedBalance] = useState<number | null>(null);
+  const [inBrowserBalanceLoading, setInBrowserBalanceLoading] = useState(false);
+  const [connectedBalanceLoading, setConnectedBalanceLoading] = useState(false);
+  const lastInBrowserBalanceFetchRef = useRef<number>(0);
+  const lastConnectedBalanceFetchRef = useRef<number>(0);
+  const isFetchingInBrowserRef = useRef<boolean>(false);
+  const isFetchingConnectedRef = useRef<boolean>(false);
 
   const handleClearClick = () => {
     setShowConfirmDialog(true);
@@ -41,12 +56,123 @@ export const Header = ({
     setShowConfirmDialog(false);
   };
 
+  const loadInBrowserBalance = useCallback(
+    async (force = false) => {
+      const now = Date.now();
+      const timeSinceLastFetch = now - lastInBrowserBalanceFetchRef.current;
+
+      // Skip if we're already fetching or if cache is still valid (unless forced)
+      if (
+        isFetchingInBrowserRef.current ||
+        (!force && timeSinceLastFetch < BALANCE_CACHE_MS)
+      ) {
+        return;
+      }
+
+      isFetchingInBrowserRef.current = true;
+      setInBrowserBalanceLoading(true);
+      try {
+        const connection = new Connection(
+          rpcUrl || "https://solana.drpc.org",
+          "confirmed"
+        );
+        const walletAddress = getInBrowserWalletAddress();
+        const publicKey = new PublicKey(walletAddress);
+        const usdcMint = getUSDCMint(network);
+        const balance = await getUSDCBalance(connection, publicKey, usdcMint);
+        setInBrowserBalance(balance);
+        lastInBrowserBalanceFetchRef.current = now;
+      } catch (error) {
+        console.error("Failed to load in-browser balance:", error);
+        // Only set to 0 if it's a real error, not a rate limit
+        if (error instanceof Error && !error.message.includes("429")) {
+          setInBrowserBalance(0);
+        }
+      } finally {
+        setInBrowserBalanceLoading(false);
+        isFetchingInBrowserRef.current = false;
+      }
+    },
+    [network, rpcUrl]
+  );
+
+  const loadConnectedBalance = useCallback(
+    async (force = false) => {
+      if (!publicKey) {
+        setConnectedBalance(null);
+        return;
+      }
+
+      const now = Date.now();
+      const timeSinceLastFetch = now - lastConnectedBalanceFetchRef.current;
+
+      // Skip if we're already fetching or if cache is still valid (unless forced)
+      if (
+        isFetchingConnectedRef.current ||
+        (!force && timeSinceLastFetch < BALANCE_CACHE_MS)
+      ) {
+        return;
+      }
+
+      isFetchingConnectedRef.current = true;
+      setConnectedBalanceLoading(true);
+      try {
+        const connection = new Connection(
+          rpcUrl || "https://solana.drpc.org",
+          "confirmed"
+        );
+        const usdcMint = getUSDCMint(network);
+        const balance = await getUSDCBalance(connection, publicKey, usdcMint);
+        setConnectedBalance(balance);
+        lastConnectedBalanceFetchRef.current = now;
+      } catch (error) {
+        console.error("Failed to load connected balance:", error);
+        // Only set to 0 if it's a real error, not a rate limit
+        if (error instanceof Error && !error.message.includes("429")) {
+          setConnectedBalance(0);
+        }
+      } finally {
+        setConnectedBalanceLoading(false);
+        isFetchingConnectedRef.current = false;
+      }
+    },
+    [network, rpcUrl, publicKey]
+  );
+
   const handlePaymentSourceChange = (source: PaymentSource) => {
     setPaymentSourceState(source);
     setPaymentSource(source);
     // Trigger a re-render in parent components by dispatching a custom event
-    window.dispatchEvent(new CustomEvent("paymentSourceChanged", { detail: source }));
+    window.dispatchEvent(
+      new CustomEvent("paymentSourceChanged", { detail: source })
+    );
   };
+
+  // Load balances when component mounts or network/rpc changes
+  useEffect(() => {
+    loadInBrowserBalance();
+    loadConnectedBalance();
+  }, [network, rpcUrl, loadInBrowserBalance, loadConnectedBalance]);
+
+  // Load connected balance when wallet connects/disconnects
+  useEffect(() => {
+    if (publicKey) {
+      loadConnectedBalance(true);
+    } else {
+      setConnectedBalance(null);
+    }
+  }, [publicKey, loadConnectedBalance]);
+
+  // Listen for balance updates when modal closes (force refresh after funding)
+  useEffect(() => {
+    if (!showWalletModal && paymentSource === "in-browser") {
+      // Reload balance when modal closes (user might have funded) - force refresh
+      const timeoutId = setTimeout(() => {
+        loadInBrowserBalance(true);
+      }, 1000); // Wait 1 second after modal closes to allow transaction to settle
+      return () => clearTimeout(timeoutId);
+    }
+  }, [showWalletModal, paymentSource, loadInBrowserBalance]);
 
   // Listen for wallet adapter errors (including auto-connect rejections)
   useEffect(() => {
@@ -106,11 +232,20 @@ export const Header = ({
           <div className="flex items-center gap-3">
             {/* Payment Source Toggle */}
             <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-lg">
-              <span className="text-sm font-medium">Payment:</span>
+              <div className="relative group">
+                <span className="text-sm font-medium cursor-help">
+                  x402 Payment Source
+                </span>
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-64 p-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                  Choose how to pay for x402 tool invocations. In-Browser uses
+                  an automatic wallet stored locally, while Connected uses your
+                  browser wallet (requires approval for each payment).
+                </div>
+              </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handlePaymentSourceChange("in-browser")}
-                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                  className={`px-3 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${
                     paymentSource === "in-browser"
                       ? "bg-white text-purple-600"
                       : "text-white/70 hover:text-white"
@@ -118,10 +253,17 @@ export const Header = ({
                   title="Use in-browser wallet (automatic payments)"
                 >
                   In-Browser
+                  {inBrowserBalance !== null && (
+                    <span className="text-xs opacity-75">
+                      {inBrowserBalanceLoading
+                        ? "..."
+                        : `$${inBrowserBalance.toFixed(2)}`}
+                    </span>
+                  )}
                 </button>
                 <button
                   onClick={() => handlePaymentSourceChange("connected-wallet")}
-                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                  className={`px-3 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${
                     paymentSource === "connected-wallet"
                       ? "bg-white text-purple-600"
                       : "text-white/70 hover:text-white"
@@ -129,12 +271,19 @@ export const Header = ({
                   title="Use connected browser wallet (requires approval)"
                 >
                   Connected
+                  {connectedBalance !== null && (
+                    <span className="text-xs opacity-75">
+                      {connectedBalanceLoading
+                        ? "..."
+                        : `$${connectedBalance.toFixed(2)}`}
+                    </span>
+                  )}
                 </button>
               </div>
               {paymentSource === "in-browser" && (
                 <button
                   onClick={() => setShowWalletModal(true)}
-                  className="ml-2 px-2 py-1 bg-white/20 hover:bg-white/30 rounded text-xs font-medium transition-colors"
+                  className="ml-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
                   title="View wallet address and fund with USDC"
                 >
                   💰 Fund
@@ -165,7 +314,7 @@ export const Header = ({
                 Clear History
               </button>
             )}
-            <WalletMultiButton className="!bg-white !text-purple-600 hover:!bg-purple-50 !font-medium !transition-colors !rounded-lg !px-4 !py-2 !shadow-sm !border !border-purple-200" />
+            <WalletMultiButton className="!bg-white/20 hover:!bg-white/30 !text-white !font-medium !transition-colors !rounded-lg !px-4 !py-2 !text-sm !shadow-sm !border-0 !h-auto" />
           </div>
         </div>
       </header>

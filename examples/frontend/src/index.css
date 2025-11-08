@@ -15,3 +15,37 @@ body {
   height: 100vh;
   width: 100vw;
 }
+
+/* Override wallet adapter button styles to match other buttons */
+.wallet-adapter-button,
+.wallet-adapter-button-trigger {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+  border: none !important;
+  font-weight: 500 !important;
+  transition: background-color 0.2s !important;
+  font-size: 0.875rem !important; /* text-sm */
+  line-height: 1.25rem !important; /* matches py-2 */
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.wallet-adapter-button:hover,
+.wallet-adapter-button-trigger:hover,
+.wallet-adapter-button:not([disabled]):hover,
+.wallet-adapter-button-trigger:not([disabled]):hover {
+  background-color: rgba(255, 255, 255, 0.3) !important;
+  color: white !important;
+}
+
+/* Style nested elements (icons, text) */
+.wallet-adapter-button *,
+.wallet-adapter-button-trigger * {
+  color: white !important;
+}
+
+.wallet-adapter-button svg,
+.wallet-adapter-button-trigger svg {
+  fill: white !important;
+  stroke: white !important;
+}
