@@ -102,6 +102,12 @@ export const WalletFundingModal = ({
           </button>
         </div>
 
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+          <p className="text-sm text-red-800">
+            <strong>⚠️ Security Warning:</strong> The wallet key is stored in your browser's local storage. This is not secure for storing large amounts of funds. Only add small amounts for testing purposes.
+          </p>
+        </div>
+
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
