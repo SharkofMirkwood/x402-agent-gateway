@@ -4,9 +4,10 @@ import { MessageBubble } from './MessageBubble';
 
 interface MessageListProps {
   messages: Message[];
+  network?: "solana" | "solana-devnet";
 }
 
-export const MessageList = ({ messages }: MessageListProps) => {
+export const MessageList = ({ messages, network }: MessageListProps) => {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -28,7 +29,7 @@ export const MessageList = ({ messages }: MessageListProps) => {
   return (
     <div className="flex-1 overflow-y-auto px-4 py-6">
       {messages.map(message => (
-        <MessageBubble key={message.id} message={message} />
+        <MessageBubble key={message.id} message={message} network={network} />
       ))}
       <div ref={bottomRef} />
     </div>

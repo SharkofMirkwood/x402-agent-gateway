@@ -4,6 +4,7 @@ export interface ToolCall {
   result: unknown;
   cost: string;
   status?: "pending" | "completed" | "failed" | "cancelled";
+  transactionId?: string;
 }
 
 export interface Message {
@@ -13,6 +14,7 @@ export interface Message {
   timestamp: number;
   toolCalls?: ToolCall[];
   paymentStatus?: "pending" | "confirmed" | "failed";
+  transactionId?: string;
 }
 
 export interface ChatHistory {

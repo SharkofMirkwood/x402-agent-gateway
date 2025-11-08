@@ -70,7 +70,9 @@ describe("HttpClient", () => {
       mockX402Client.fetch.mockResolvedValue({
         ok: false,
         status: 500,
-        text: jest.fn().mockResolvedValue(JSON.stringify({ message: "Network error" })),
+        text: jest
+          .fn()
+          .mockResolvedValue(JSON.stringify({ message: "Network error" })),
       } as any);
 
       await expect(client.get("/tools")).rejects.toThrow("Network error");
@@ -149,7 +151,11 @@ describe("HttpClient", () => {
       mockX402Client.fetch.mockResolvedValue({
         ok: false,
         status: 500,
-        text: jest.fn().mockResolvedValue(JSON.stringify({ code: "INTERNAL_ERROR", message: "Server error" })),
+        text: jest
+          .fn()
+          .mockResolvedValue(
+            JSON.stringify({ code: "INTERNAL_ERROR", message: "Server error" })
+          ),
       } as any);
 
       await expect(client.post("/tools/test/invoke", {})).rejects.toMatchObject(

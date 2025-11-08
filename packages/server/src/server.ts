@@ -38,7 +38,11 @@ export class ToolServer {
 
     this.config = config;
     this.app = express();
-    this.app.use(cors());
+    this.app.use(
+      cors({
+        exposedHeaders: ["X-PAYMENT-RESPONSE"],
+      })
+    );
     this.app.use(express.json());
 
     this.setupRoutes();

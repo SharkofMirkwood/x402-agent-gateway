@@ -112,7 +112,28 @@ export class HttpClient {
       throw error;
     }
 
+    // Extract transaction ID from X-PAYMENT-RESPONSE header if present
+    let transactionId: string | undefined;
+    try {
+      const headers = (response as any).headers;
+      if (headers?.get) {
+        const headerValue = headers.get("X-PAYMENT-RESPONSE");
+        if (headerValue) {
+          const paymentResponse = JSON.parse(atob(headerValue));
+          transactionId = paymentResponse.txHash;
+        }
+      }
+    } catch (error) {
+      // Silently ignore header extraction errors
+    }
+
     const data = await (response as any).json();
+
+    // Attach transaction ID to the response data if available
+    if (transactionId && typeof data === "object" && data !== null) {
+      (data as any).__transactionId = transactionId;
+    }
+
     return data as T;
   }
 

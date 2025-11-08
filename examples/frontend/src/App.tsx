@@ -46,6 +46,7 @@ function AppContent() {
           messages={messages}
           loading={loading}
           sendMessage={sendMessage}
+          network={network}
         />
         <ToolsList client={client} onToolExecute={executeToolManually} />
       </div>

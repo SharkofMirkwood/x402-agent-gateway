@@ -9,12 +9,14 @@ interface ChatInterfaceProps {
   messages: Message[];
   loading: boolean;
   sendMessage: (content: string) => Promise<void>;
+  network?: "solana" | "solana-devnet";
 }
 
 export const ChatInterface = ({
   messages,
   loading,
   sendMessage,
+  network,
 }: ChatInterfaceProps) => {
   const { connected } = useWallet();
   const [paymentStatus, setPaymentStatus] = useState<
@@ -64,7 +66,7 @@ export const ChatInterface = ({
 
   return (
     <div className="flex-1 flex flex-col bg-white">
-      <MessageList messages={messages} />
+      <MessageList messages={messages} network={network} />
       <PaymentIndicator status={paymentStatus} />
       <MessageInput onSend={handleSend} disabled={loading} />
     </div>

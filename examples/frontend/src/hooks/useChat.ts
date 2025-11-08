@@ -116,6 +116,15 @@ export const useChat = (client: X402Client | null) => {
     [tools]
   );
 
+  // Helper function to extract and remove transaction ID from response
+  const extractTransactionId = (response: any): string | undefined => {
+    const transactionId = response?.__transactionId;
+    if (transactionId && typeof response === "object" && response !== null) {
+      delete response.__transactionId;
+    }
+    return transactionId;
+  };
+
   const addMessage = (message: Message) => {
     setMessages((prev) => [...prev, message]);
   };
@@ -188,7 +197,14 @@ export const useChat = (client: X402Client | null) => {
           arguments: string;
         };
       }>
-    ): Promise<Array<{ toolCallId: string; name: string; result: any }>> => {
+    ): Promise<
+      Array<{
+        toolCallId: string;
+        name: string;
+        result: any;
+        transactionId?: string;
+      }>
+    > => {
       if (!client) {
         throw new Error("Client not available");
       }
@@ -201,10 +217,12 @@ export const useChat = (client: X402Client | null) => {
               toolCall.function.name,
               args
             );
+            const transactionId = extractTransactionId(result);
             return {
               toolCallId: toolCall.id,
               name: toolCall.function.name,
               result,
+              transactionId,
             };
           } catch (error: any) {
             console.error(
@@ -261,6 +279,8 @@ export const useChat = (client: X402Client | null) => {
           tools: "auto",
         });
 
+        const chatTransactionId = extractTransactionId(response);
+
         const choice = response.choices[0];
         if (!choice) {
           throw new Error("No response from API");
@@ -278,6 +298,7 @@ export const useChat = (client: X402Client | null) => {
             content: assistantMessage.content || "",
             timestamp: Date.now(),
             paymentStatus: "confirmed",
+            transactionId: chatTransactionId,
             toolCalls: assistantMessage.tool_calls.map((tc) => ({
               name: tc.function.name,
               input: JSON.parse(tc.function.arguments),
@@ -309,6 +330,7 @@ export const useChat = (client: X402Client | null) => {
               result: toolResult,
               cost: getToolPrice(tc.function.name),
               status: hasError ? ("failed" as const) : ("completed" as const),
+              transactionId: result?.transactionId,
             };
           });
 
@@ -331,6 +353,8 @@ export const useChat = (client: X402Client | null) => {
             tools: "auto",
           });
 
+          const finalTransactionId = extractTransactionId(finalResponse);
+
           const finalChoice = finalResponse.choices[0];
           if (!finalChoice) {
             throw new Error("No response from API");
@@ -342,6 +366,7 @@ export const useChat = (client: X402Client | null) => {
             content: finalChoice.message.content || "No response",
             timestamp: Date.now(),
             paymentStatus: "confirmed",
+            transactionId: finalTransactionId,
           };
 
           addMessage(finalAssistantMessage);
@@ -352,6 +377,7 @@ export const useChat = (client: X402Client | null) => {
             content: assistantMessage.content || "No response",
             timestamp: Date.now(),
             paymentStatus: "confirmed",
+            transactionId: chatTransactionId,
           };
 
           addMessage(assistantMessageFinal);
@@ -466,6 +492,7 @@ export const useChat = (client: X402Client | null) => {
               result: toolResult,
               cost: getToolPrice(toolName),
               status: hasError ? ("failed" as const) : ("completed" as const),
+              transactionId: result?.transactionId,
             },
           ],
         });
