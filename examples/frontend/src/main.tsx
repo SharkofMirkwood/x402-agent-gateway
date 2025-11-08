@@ -1,3 +1,6 @@
+// Import polyfills first to ensure Buffer is available before any other code runs
+import "./polyfills";
+
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.tsx";

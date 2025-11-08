@@ -1,15 +1,32 @@
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { useEffect, useState } from "react";
+import {
+  getPaymentSource,
+  setPaymentSource,
+  PaymentSource,
+} from "../utils/wallet";
+import { WalletFundingModal } from "./WalletFundingModal";
 
 interface HeaderProps {
   onClearChatHistory: () => void;
   hasMessages: boolean;
+  network: "solana" | "solana-devnet";
+  rpcUrl?: string;
 }
 
-export const Header = ({ onClearChatHistory, hasMessages }: HeaderProps) => {
+export const Header = ({
+  onClearChatHistory,
+  hasMessages,
+  network,
+  rpcUrl,
+}: HeaderProps) => {
   const { wallet, publicKey } = useWallet();
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [paymentSource, setPaymentSourceState] = useState<PaymentSource>(
+    getPaymentSource()
+  );
+  const [showWalletModal, setShowWalletModal] = useState(false);
 
   const handleClearClick = () => {
     setShowConfirmDialog(true);
@@ -22,6 +39,13 @@ export const Header = ({ onClearChatHistory, hasMessages }: HeaderProps) => {
 
   const handleCancelClear = () => {
     setShowConfirmDialog(false);
+  };
+
+  const handlePaymentSourceChange = (source: PaymentSource) => {
+    setPaymentSourceState(source);
+    setPaymentSource(source);
+    // Trigger a re-render in parent components by dispatching a custom event
+    window.dispatchEvent(new CustomEvent("paymentSourceChanged", { detail: source }));
   };
 
   // Listen for wallet adapter errors (including auto-connect rejections)
@@ -80,6 +104,44 @@ export const Header = ({ onClearChatHistory, hasMessages }: HeaderProps) => {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Payment Source Toggle */}
+            <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-lg">
+              <span className="text-sm font-medium">Payment:</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePaymentSourceChange("in-browser")}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                    paymentSource === "in-browser"
+                      ? "bg-white text-purple-600"
+                      : "text-white/70 hover:text-white"
+                  }`}
+                  title="Use in-browser wallet (automatic payments)"
+                >
+                  In-Browser
+                </button>
+                <button
+                  onClick={() => handlePaymentSourceChange("connected-wallet")}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                    paymentSource === "connected-wallet"
+                      ? "bg-white text-purple-600"
+                      : "text-white/70 hover:text-white"
+                  }`}
+                  title="Use connected browser wallet (requires approval)"
+                >
+                  Connected
+                </button>
+              </div>
+              {paymentSource === "in-browser" && (
+                <button
+                  onClick={() => setShowWalletModal(true)}
+                  className="ml-2 px-2 py-1 bg-white/20 hover:bg-white/30 rounded text-xs font-medium transition-colors"
+                  title="View wallet address and fund with USDC"
+                >
+                  💰 Fund
+                </button>
+              )}
+            </div>
+
             {hasMessages && (
               <button
                 onClick={handleClearClick}
@@ -136,6 +198,14 @@ export const Header = ({ onClearChatHistory, hasMessages }: HeaderProps) => {
           </div>
         </div>
       )}
+
+      {/* Wallet Funding Modal */}
+      <WalletFundingModal
+        isOpen={showWalletModal}
+        onClose={() => setShowWalletModal(false)}
+        network={network}
+        rpcUrl={rpcUrl}
+      />
     </>
   );
 };

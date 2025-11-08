@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import {
   ConnectionProvider,
   WalletProvider,
@@ -11,8 +11,14 @@ import { ChatInterface } from "./components/ChatInterface";
 import { ToolsList } from "./components/ToolsList";
 import { useX402Client } from "./hooks/useX402Client";
 import { useChat } from "./hooks/useChat";
+import { getInBrowserWallet } from "./utils/wallet";
 
 function AppContent() {
+  const network = (import.meta.env.VITE_NETWORK || "solana-devnet") as
+    | "solana"
+    | "solana-devnet";
+  const rpcUrl = import.meta.env.VITE_RPC_URL || "https://solana.drpc.org";
+  
   const client = useX402Client();
   const {
     messages,
@@ -22,11 +28,18 @@ function AppContent() {
     clearChatHistory,
   } = useChat(client);
 
+  // Initialize in-browser wallet on first load
+  useEffect(() => {
+    getInBrowserWallet();
+  }, []);
+
   return (
     <div className="h-screen flex flex-col">
       <Header
         onClearChatHistory={clearChatHistory}
         hasMessages={messages.length > 0}
+        network={network}
+        rpcUrl={rpcUrl}
       />
       <div className="flex-1 flex overflow-hidden">
         <ChatInterface
@@ -41,7 +54,13 @@ function AppContent() {
 }
 
 function App() {
-  const endpoint = useMemo(() => clusterApiUrl("devnet"), []);
+  const network = (import.meta.env.VITE_NETWORK || "solana-devnet") as
+    | "solana"
+    | "solana-devnet";
+  const endpoint = useMemo(
+    () => (network === "solana" ? clusterApiUrl("mainnet-beta") : clusterApiUrl("devnet")),
+    [network]
+  );
   const wallets = useMemo(() => {
     const walletList = [new SolflareWalletAdapter()];
     // Filter out Brave wallet if it gets auto-detected
