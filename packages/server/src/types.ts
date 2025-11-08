@@ -92,6 +92,22 @@ export interface ChatCompletionResponse {
   };
 }
 
+export interface TokenBasedPricing {
+  asset: string;
+  mint?: PublicKey;
+  costPerToken: string;
+  baseAmount?: string;
+  min?: string;
+  max?: string;
+  model?: string;
+}
+
+export type ChatPaymentPrice =
+  | PaymentPrice
+  | TokenBasedPricing
+  | null
+  | ((messages: ChatMessage[]) => PaymentPrice | Promise<PaymentPrice>);
+
 export interface ServerConfig {
   port?: number;
   facilitatorUrl: string;
@@ -99,5 +115,5 @@ export interface ServerConfig {
   network: Network;
   devMode?: boolean;
   openaiApiKey?: string;
-  chatPaymentPrice?: PaymentPrice | null;
+  chatPaymentPrice?: ChatPaymentPrice;
 }

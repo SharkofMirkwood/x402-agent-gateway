@@ -1,5 +1,12 @@
 import { Router, Request, Response } from "express";
-import { RegisteredTool } from "./types";
+import express from "express";
+import {
+  RegisteredTool,
+  ChatPaymentPrice,
+  ChatMessage,
+  TokenBasedPricing,
+  PaymentPrice,
+} from "./types";
 import { registry } from "./registry";
 import {
   setPaymentConfig,
@@ -7,13 +14,14 @@ import {
 } from "./payment-middleware";
 import OpenAI from "openai";
 import { toJSONSchema } from "zod";
+import { encoding_for_model } from "tiktoken";
 
 export interface RouterConfig {
   recipientWallet: string;
   network: string;
   facilitatorUrl: string;
   devMode?: boolean;
-  chatPaymentPrice?: { asset: string; amount: string } | null;
+  chatPaymentPrice?: ChatPaymentPrice;
   openaiApiKey?: string;
 }
 
@@ -38,8 +46,93 @@ function convertToolsToOpenAIFormat(tools: RegisteredTool[]): Array<{
   });
 }
 
+/**
+ * Checks if an object is a TokenBasedPricing configuration
+ */
+function isTokenBasedPricing(
+  price: ChatPaymentPrice
+): price is TokenBasedPricing {
+  return (
+    price !== null &&
+    typeof price === "object" &&
+    "costPerToken" in price &&
+    !("amount" in price)
+  );
+}
+
+/**
+ * Calculates the payment price based on token count
+ */
+async function calculateTokenBasedPrice(
+  pricing: TokenBasedPricing,
+  messages: ChatMessage[]
+): Promise<PaymentPrice> {
+  try {
+    const model = pricing.model || "gpt-4o";
+    const encoding = encoding_for_model(model as any);
+
+    // Count tokens in all messages
+    let totalTokens = 0;
+    for (const message of messages) {
+      // Count tokens in message content
+      if (message.content) {
+        totalTokens += encoding.encode(message.content).length;
+      }
+
+      // Count tokens in tool calls if present
+      if (message.tool_calls) {
+        for (const toolCall of message.tool_calls) {
+          if (toolCall.function) {
+            totalTokens += encoding.encode(toolCall.function.name).length;
+            totalTokens += encoding.encode(toolCall.function.arguments).length;
+          }
+        }
+      }
+    }
+
+    encoding.free();
+
+    // Calculate total price: base amount + (tokens * cost per token)
+    const baseAmount = parseFloat(pricing.baseAmount || "0");
+    const costPerToken = parseFloat(pricing.costPerToken);
+    let totalAmount = baseAmount + totalTokens * costPerToken;
+
+    // Apply min/max constraints if specified
+    if (pricing.min !== undefined) {
+      totalAmount = Math.max(totalAmount, parseFloat(pricing.min));
+    }
+    if (pricing.max !== undefined) {
+      totalAmount = Math.min(totalAmount, parseFloat(pricing.max));
+    }
+
+    return {
+      asset: pricing.asset,
+      amount: totalAmount.toString(),
+      mint: pricing.mint,
+    };
+  } catch (error) {
+    // Fallback to base amount if token counting fails
+    console.warn("Failed to count tokens, using base amount:", error);
+    const baseAmount = parseFloat(pricing.baseAmount || "0");
+    let fallbackAmount = baseAmount;
+
+    // Apply min constraint if specified
+    if (pricing.min !== undefined) {
+      fallbackAmount = Math.max(fallbackAmount, parseFloat(pricing.min));
+    }
+
+    return {
+      asset: pricing.asset,
+      amount: fallbackAmount.toString(),
+      mint: pricing.mint,
+    };
+  }
+}
+
 export function createX402Router(config: RouterConfig): Router {
   const router = Router();
+
+  router.use(express.json());
 
   setPaymentConfig({
     recipientWallet: config.recipientWallet,
@@ -114,11 +207,6 @@ export function createX402Router(config: RouterConfig): Router {
   });
 
   router.post("/v1/chat/completions", async (req: Request, res: Response) => {
-    const chatPrice =
-      config.chatPaymentPrice !== null
-        ? config.chatPaymentPrice || { asset: "SOL", amount: "0.0001" }
-        : null;
-
     const handleChatRequest = async (req: Request, res: Response) => {
       try {
         const { model, messages, temperature, max_tokens } = req.body;
@@ -207,12 +295,52 @@ export function createX402Router(config: RouterConfig): Router {
       }
     };
 
-    if (chatPrice) {
-      const middleware = createPaymentMiddleware(chatPrice);
-      middleware(req, res, () => handleChatRequest(req, res));
-    } else {
-      await handleChatRequest(req, res);
+    // Handle payment middleware - we need to check if payment is required
+    // before processing the request, but dynamic pricing needs messages
+    // So we'll handle it inside the request handler
+    const { messages } = req.body;
+
+    if (
+      config.chatPaymentPrice !== null &&
+      config.chatPaymentPrice !== undefined
+    ) {
+      // Create a pricing function that the middleware can use
+      // This ensures the price is calculated consistently for both
+      // payment requirements creation and verification
+      let pricingFunction: (body: any) => PaymentPrice | Promise<PaymentPrice>;
+
+      const chatPrice = config.chatPaymentPrice;
+
+      if (typeof chatPrice === "function") {
+        // Custom function pricing - wrap it to extract messages
+        pricingFunction = async (body: any) => {
+          const msgs = body.messages;
+          if (!msgs || !Array.isArray(msgs)) {
+            throw new Error("Messages array is required");
+          }
+          return await chatPrice(msgs);
+        };
+      } else if (isTokenBasedPricing(chatPrice)) {
+        // Token-based pricing - create a function that calculates from messages
+        const tokenPricing = chatPrice; // Type narrowing
+        pricingFunction = async (body: any) => {
+          const msgs = body.messages;
+          if (!msgs || !Array.isArray(msgs)) {
+            throw new Error("Messages array is required");
+          }
+          return await calculateTokenBasedPrice(tokenPricing, msgs);
+        };
+      } else {
+        // Static pricing - return a function that always returns the same price
+        const staticPrice = chatPrice; // Type narrowing to PaymentPrice
+        pricingFunction = () => Promise.resolve(staticPrice);
+      }
+
+      const middleware = createPaymentMiddleware(pricingFunction);
+      return middleware(req, res, () => handleChatRequest(req, res));
     }
+
+    await handleChatRequest(req, res);
   });
 
   return router;

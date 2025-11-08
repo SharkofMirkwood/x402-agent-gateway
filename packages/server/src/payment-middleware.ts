@@ -106,10 +106,29 @@ export function createPaymentMiddleware(
 
     if (!paymentHeader) {
       let actualPrice: PaymentPrice;
-      if (typeof price === "function") {
-        actualPrice = await price(req.body);
-      } else {
-        actualPrice = price;
+      try {
+        if (typeof price === "function") {
+          if (!req.body || Object.keys(req.body).length === 0) {
+            return res.status(400).json({
+              code: "INVALID_REQUEST",
+              message: "Request body is required",
+              retriable: false,
+            });
+          }
+          actualPrice = await price(req.body);
+        } else {
+          actualPrice = price;
+        }
+      } catch (error) {
+        console.error("Error calculating price:", error);
+        return res.status(400).json({
+          code: "PRICE_CALCULATION_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to calculate payment price",
+          retriable: false,
+        });
       }
 
       const maxTimeoutSeconds = 120;
@@ -136,7 +155,7 @@ export function createPaymentMiddleware(
           : {
               facilitatorUrl: paymentConfig.facilitatorUrl,
             },
-          };
+      };
 
       // The client expects: { x402Version: number, accepts: PaymentRequirements[] }
       return res.status(402).json({
@@ -148,10 +167,29 @@ export function createPaymentMiddleware(
 
     try {
       let actualPrice: PaymentPrice;
-      if (typeof price === "function") {
-        actualPrice = await price(req.body);
-      } else {
-        actualPrice = price;
+      try {
+        if (typeof price === "function") {
+          if (!req.body || Object.keys(req.body).length === 0) {
+            return res.status(400).json({
+              code: "INVALID_REQUEST",
+              message: "Request body is required",
+              retriable: false,
+            });
+          }
+          actualPrice = await price(req.body);
+        } else {
+          actualPrice = price;
+        }
+      } catch (error) {
+        console.error("Error calculating price for verification:", error);
+        return res.status(400).json({
+          code: "PRICE_CALCULATION_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to calculate payment price",
+          retriable: false,
+        });
       }
 
       const maxTimeoutSeconds = 120;
@@ -181,8 +219,6 @@ export function createPaymentMiddleware(
           retriable: false,
         });
       }
-
-      console.log("Payment verified by facilitator");
 
       const originalEnd = res.end.bind(res);
       let settlementInProgress = false;

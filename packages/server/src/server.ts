@@ -1,7 +1,7 @@
 import express, { Express } from "express";
 import cors from "cors";
 import { PublicKey } from "@solana/web3.js";
-import { ServerConfig } from "./types";
+import { ServerConfig, TokenBasedPricing } from "./types";
 import { registry } from "./registry";
 import { createX402Router } from "./router";
 
@@ -64,13 +64,16 @@ export class ToolServer {
       console.log(`Network: ${this.config.network}`);
       console.log(`Recipient: ${this.config.recipientWallet}`);
       console.log(`Dev Mode: ${this.config.devMode || false}`);
-      console.log(
-        `Chat Payments: ${
-          this.config.chatPaymentPrice
-            ? `${this.config.chatPaymentPrice.amount} ${this.config.chatPaymentPrice.asset}`
-            : "FREE"
-        }`
-      );
+      const chatPaymentInfo =
+        this.config.chatPaymentPrice === null ||
+        this.config.chatPaymentPrice === undefined
+          ? "FREE"
+          : typeof this.config.chatPaymentPrice === "function"
+          ? "DYNAMIC (custom function)"
+          : "costPerToken" in this.config.chatPaymentPrice
+          ? `DYNAMIC (${this.config.chatPaymentPrice.costPerToken} per token)`
+          : `${this.config.chatPaymentPrice.amount} ${this.config.chatPaymentPrice.asset}`;
+      console.log(`Chat Payments: ${chatPaymentInfo}`);
     });
   }
 

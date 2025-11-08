@@ -22,9 +22,24 @@ const USDC_MINT = new PublicKey(
 );
 
 // USDC amounts are in micro-units (6 decimals): 0.01 USDC = 10000
-const CHAT_PAYMENT_PRICE = process.env.CHAT_PAYMENT_PRICE
-  ? { asset: "USDC", amount: process.env.CHAT_PAYMENT_PRICE, mint: USDC_MINT }
-  : { asset: "USDC", amount: "10000", mint: USDC_MINT }; // 0.01 USDC
+// Token-based pricing: calculates price dynamically based on message token count
+const CHAT_PAYMENT_PRICE = process.env.CHAT_PAYMENT_STATIC
+  ? // Static pricing (if CHAT_PAYMENT_STATIC is set)
+    {
+      asset: "USDC",
+      amount: process.env.CHAT_PAYMENT_STATIC,
+      mint: USDC_MINT,
+    }
+  : // Dynamic token-based pricing (default)
+    {
+      asset: "USDC",
+      mint: USDC_MINT,
+      costPerToken: process.env.CHAT_COST_PER_TOKEN || "1", // 1 micro-USDC per token (0.000001 USDC)
+      baseAmount: process.env.CHAT_BASE_AMOUNT || "0", // Optional base amount
+      min: process.env.CHAT_MIN_AMOUNT || "10000", // Minimum 10000 micro-USDC (0.01 USDC) - facilitator may reject smaller amounts
+      max: process.env.CHAT_MAX_AMOUNT, // Optional maximum
+      model: process.env.CHAT_MODEL || "gpt-4o", // Model for token counting
+    };
 
 const server = createToolServer({
   port: PORT,
@@ -33,7 +48,6 @@ const server = createToolServer({
   recipientWallet: RECIPIENT_WALLET,
   network: NETWORK,
   devMode: DEV_MODE,
-  // TODO: Make this dynamic like the other endpoints
   chatPaymentPrice: CHAT_PAYMENT_PRICE,
   openaiApiKey: process.env.OPENAI_API_KEY,
 });

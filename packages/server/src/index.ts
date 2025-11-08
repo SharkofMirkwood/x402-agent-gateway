@@ -7,6 +7,9 @@ import {
   ToolMetadata,
   PaymentPrice,
   PaymentRequirements,
+  ChatMessage,
+  ChatPaymentPrice,
+  TokenBasedPricing,
 } from "./types";
 
 export function createToolServer(config: ServerConfig): ToolServer {
@@ -27,5 +30,8 @@ export {
   RouterConfig,
   createX402Server,
   createX402Router,
+  ChatPaymentPrice,
+  ChatMessage,
+  TokenBasedPricing,
 };
 export { registry };

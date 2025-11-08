@@ -65,8 +65,14 @@ interface ServerConfig {
   network: Network;                 // "solana" | "solana-devnet" (required)
   devMode?: boolean;                // Disable payments for testing (default: false)
   openaiApiKey?: string;            // OpenAI API key for chat completions (optional)
-  chatPaymentPrice?: PaymentPrice | null; // Price for chat completions (optional)
+  chatPaymentPrice?: ChatPaymentPrice; // Price for chat completions (optional)
 }
+
+type ChatPaymentPrice =
+  | PaymentPrice                    // Static price
+  | TokenBasedPricing               // Dynamic token-based pricing
+  | null                            // Free chat completions
+  | ((messages: ChatMessage[]) => PaymentPrice | Promise<PaymentPrice>); // Custom function
 ```
 
 ### Configuration Options
@@ -77,7 +83,91 @@ interface ServerConfig {
 - **`network`** (required): The Solana network to use. Must be either `"solana"` (mainnet) or `"solana-devnet"` (devnet)
 - **`devMode`** (optional): When `true`, disables payment verification for testing. Defaults to `false`
 - **`openaiApiKey`** (optional): Your OpenAI API key. Required if you want to use the chat completions endpoint
-- **`chatPaymentPrice`** (optional): The payment price for chat completions. Set to `null` to make chat completions free. If not provided, defaults to a small USDC amount
+- **`chatPaymentPrice`** (optional): The payment price for chat completions. Can be:
+  - `null` - Free chat completions
+  - `PaymentPrice` - Static fixed price
+  - `TokenBasedPricing` - Dynamic price based on message token count
+  - `Function` - Custom pricing function
+
+## Chat Payment Pricing
+
+The `chatPaymentPrice` option supports multiple pricing models:
+
+### Static Pricing
+
+Use a fixed price for all chat completions:
+
+```typescript
+const server = createToolServer({
+  // ... other config
+  chatPaymentPrice: {
+    asset: 'USDC',
+    amount: '10000', // 0.01 USDC (6 decimals)
+    mint: USDC_MINT,
+  },
+});
+```
+
+### Token-Based Pricing (Recommended)
+
+Automatically calculate price based on the number of tokens in the messages. This ensures fair pricing that scales with usage:
+
+```typescript
+const server = createToolServer({
+  // ... other config
+  chatPaymentPrice: {
+    asset: 'USDC',
+    mint: USDC_MINT,
+    costPerToken: '1',        // 1 micro-USDC per token (0.000001 USDC)
+    baseAmount: '0',          // Optional base amount to add
+    min: '100',                // Minimum price: 100 micro-USDC (0.0001 USDC)
+    max: '1000000',            // Optional maximum: 1 USDC
+    model: 'gpt-4o',          // Model for token counting (default: "gpt-4o")
+  },
+});
+```
+
+**Token-Based Pricing Options:**
+
+- **`asset`** (required): The payment asset (e.g., `"USDC"`)
+- **`mint`** (optional): SPL token mint address (required for tokens, not needed for SOL)
+- **`costPerToken`** (required): Price per token in the same unit as `baseAmount`
+- **`baseAmount`** (optional): Base amount to add to the token-based calculation (default: `"0"`)
+- **`min`** (optional): Minimum price to charge regardless of token count
+- **`max`** (optional): Maximum price cap
+- **`model`** (optional): OpenAI model name for accurate token counting (default: `"gpt-4o"`)
+
+The final price is calculated as: `max(min, min(max, baseAmount + (tokens × costPerToken)))`
+
+### Custom Function Pricing
+
+For advanced use cases, you can provide a custom function:
+
+```typescript
+const server = createToolServer({
+  // ... other config
+  chatPaymentPrice: async (messages) => {
+    // Custom logic to calculate price
+    const tokenCount = /* your calculation */;
+    return {
+      asset: 'USDC',
+      amount: (tokenCount * 0.00001).toString(),
+      mint: USDC_MINT,
+    };
+  },
+});
+```
+
+### Free Chat Completions
+
+Set `chatPaymentPrice` to `null` to make chat completions free:
+
+```typescript
+const server = createToolServer({
+  // ... other config
+  chatPaymentPrice: null, // Free chat completions
+});
+```
 
 ## Registering Tools
 
@@ -153,13 +243,31 @@ registerTool({
 
 ## Payment Price Format
 
-The `price` field accepts either a `PaymentPrice` object or a function that returns one:
+### PaymentPrice Interface
+
+The `price` field for tools accepts either a `PaymentPrice` object or a function that returns one:
 
 ```typescript
 interface PaymentPrice {
   asset: string;        // Asset name (e.g., "USDC")
   amount: string;       // Amount as a string (supports decimals)
   mint?: PublicKey;     // Required: SPL token mint address
+}
+```
+
+### TokenBasedPricing Interface
+
+For chat completions, you can use the `TokenBasedPricing` interface for dynamic token-based pricing:
+
+```typescript
+interface TokenBasedPricing {
+  asset: string;         // Asset name (e.g., "USDC")
+  mint?: PublicKey;     // SPL token mint address (required for tokens)
+  costPerToken: string; // Price per token
+  baseAmount?: string;  // Optional base amount to add
+  min?: string;         // Optional minimum price
+  max?: string;         // Optional maximum price
+  model?: string;       // Model name for token counting (default: "gpt-4o")
 }
 ```
 
