@@ -276,13 +276,6 @@ npm test -w @x402-agent-gateway/server
 npm test -w @x402-agent-gateway/client
 ```
 
-## Building
-
-```bash
-# Build all packages
-npm run build
-```
-
 ## Security Features
 
 - **Transaction Verification**: Server validates transaction structure and amount before execution
@@ -292,10 +285,11 @@ npm run build
 
 ## Future Enhancements
 
-- Distributed nonce store for horizontal scaling
+- Test and officially support other LLMs than OpenAI
+- Expand to other networks (Base?)
 - Enhanced telemetry and monitoring
-- Full MCP server compliance
-- Additional SPL token support beyond USDC
+- Add direct MCP server support
+- Simplify SPL token support (without having to provide mint address)
 
 ## License
 

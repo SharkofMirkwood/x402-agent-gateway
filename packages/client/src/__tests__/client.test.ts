@@ -44,7 +44,8 @@ describe("X402Client", () => {
       expect(HttpClient).toHaveBeenCalledWith(
         "http://localhost:3000",
         wallet,
-        "solana-devnet"
+        "solana-devnet",
+        undefined
       );
     });
 
