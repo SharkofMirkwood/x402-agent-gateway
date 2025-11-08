@@ -1,6 +1,6 @@
 {
   "name": "@x402-agent-gateway/server",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Backend SDK for x402-native agent and tool orchestration",
   "files": [
     "dist/**/*.js",

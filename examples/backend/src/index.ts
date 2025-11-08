@@ -580,6 +580,41 @@ registerTool({
   },
 });
 
+registerTool({
+  name: "donate",
+  description:
+    "Donate USDC to support the service. The donation amount will be charged when this tool is invoked.",
+  inputSchema: z.object({
+    amount: z
+      .string()
+      .describe(
+        "The amount of USDC to donate in normal USD format. For example, '0.01' = 0.01 USDC, '1.5' = 1.5 USDC, '10' = 10 USDC"
+      ),
+  }),
+  price: (args: any) => {
+    // Extract amount from request body and convert from USD to micro-USDC
+    const donationAmountUSD = parseFloat(args.amount || "0");
+    if (isNaN(donationAmountUSD) || donationAmountUSD <= 0) {
+      throw new Error("Invalid donation amount. Must be a positive number.");
+    }
+    // Convert from USD to micro-USDC (6 decimals: multiply by 1,000,000)
+    const donationAmountMicroUSDC = Math.floor(donationAmountUSD * 1000000);
+    return {
+      asset: "USDC",
+      amount: donationAmountMicroUSDC.toString(),
+      mint: USDC_MINT,
+    };
+  },
+  handler: async (args) => {
+    console.log(`[Donate] Donation amount: ${args.amount} USDC`);
+    return {
+      success: true,
+      message: `Thank you for your donation of ${args.amount} USDC!`,
+      amount: args.amount,
+    };
+  },
+});
+
 server.start();
 
 console.log("=".repeat(60));
