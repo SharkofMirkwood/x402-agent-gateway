@@ -1,5 +1,7 @@
 # x402 Agent Gateway - Payment-Gated AI Tool Orchestration
 
+> **⚠️ Hackathon Project Notice**: This project was built for the **Solana x402 Hackathon**. While it does work, please use with caution. This is experimental software and we do not take responsibility for misuse, funds lost, or any damages that may result from using this software. Use at your own risk.
+
 TypeScript client + server SDKs that let you turn any LLM-tool, API endpoint or code-function into a Solana-paywalled microservice.
 
 Agents can autonomously choose and invoke tools, while the user pays directly from their self-custody wallet on the client - keeping your infrastructure wallet-free and stateless yet potentially entirely paid for using easy permissionless micropayments.
@@ -139,6 +141,7 @@ sequenceDiagram
     participant Wallet
     participant Frontend
     participant Backend
+    participant Blockchain
     participant OpenAI
     participant Tools
 
@@ -153,7 +156,9 @@ sequenceDiagram
     User->>Wallet: Sign payment
     Wallet->>Frontend: Send signed payment
     Frontend->>Backend: Execute tool call with signed payment in header
+    Backend->>Blockchain: Verify signed transaction
     Backend->>Tools: Retrieve data/execute stuff
+    Backend->>Blockchain: Broadcast transaction
     Tools->>Backend: Return data
     Backend->>Frontend: Return function tool response
     Frontend->>Backend: Send results back to OpenAI (as part of chat history)
@@ -341,3 +346,15 @@ MIT License
 ## Contributing
 
 Contributions welcome! This project was built as a hackathon demonstration of x402-native payment-gated AI tools.
+
+## Disclaimer
+
+**This software is provided "as is" without warranty of any kind, express or implied.** 
+
+- This is a hackathon project and experimental software
+- The software has been tested but may contain bugs or security vulnerabilities
+- We do not guarantee the security, reliability, or correctness of any payment transactions
+- **We are not responsible for any funds lost, stolen, or misused as a result of using this software**
+- Users are solely responsible for verifying all transactions and payment amounts before signing
+- Use this software at your own risk and discretion
+- Always test thoroughly in a development environment before using with real funds
